@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="559.37006"
+   height="793.70081"
+   viewBox="0 0 147.99999 210"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.4.2 (ebf0e940d0, 2025-05-08)"
+   sodipodi:docname="input.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#999999"
+     borderopacity="1"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     inkscape:zoom="1.13"
+     inkscape:cx="361.06195"
+     inkscape:cy="316.37168"
+     inkscape:window-width="2560"
+     inkscape:window-height="1354"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer2" />
+  <defs
+     id="defs1">
+    <rect
+       x="105.30973"
+       y="631.85841"
+       width="228.31858"
+       height="130.97345"
+       id="rect3" />
+    <rect
+       x="92.0354"
+       y="191.15044"
+       width="66.371681"
+       height="56.637173"
+       id="rect244" />
+  </defs>
+  <g
+     inkscape:groupmode="layer"
+     id="layer2"
+     inkscape:label="frame">
+    <rect
+       style="display:none;opacity:1;fill:none;stroke:#d9d9d9;stroke-width:0.398;stroke-linecap:round;stroke-dasharray:0.398, 1.194;stroke-dashoffset:0.358199;stroke-opacity:1;paint-order:fill markers stroke"
+       id="rect1"
+       width="129.60179"
+       height="129.60179"
+       x="9.1991014"
+       y="9.7961006"
+       ry="0"
+       inkscape:label="box" />
+    <g
+       id="g1"
+       inkscape:label="radial"
+       style="display:none">
+      <path
+         style="opacity:1;fill:#999999;stroke:#d9d9d9;stroke-width:0.397999;stroke-linecap:round;stroke-dasharray:0.397999, 1.194;stroke-dashoffset:0.358198;stroke-opacity:1;paint-order:fill markers stroke"
+         d="M 9.1991012,9.7961004 138.80089,139.39789"
+         id="path2" />
+      <path
+         style="opacity:1;fill:#999999;stroke:#d9d9d9;stroke-width:0.397999;stroke-linecap:round;stroke-dasharray:0.397999, 1.194;stroke-dashoffset:0.358198;stroke-opacity:1;paint-order:fill markers stroke"
+         d="M 9.1991012,139.39789 138.80089,9.7961004"
+         id="path3" />
+      <path
+         style="fill:#999999;stroke:#d9d9d9;stroke-width:0.397999;stroke-linecap:round;stroke-dasharray:0.397999, 1.194;stroke-dashoffset:0.358198;stroke-opacity:1;paint-order:fill markers stroke"
+         d="M 73.999998,9.895596 V 139.49739"
+         id="path5" />
+      <path
+         style="fill:#999999;stroke:#d9d9d9;stroke-width:0.397999;stroke-linecap:round;stroke-dasharray:0.397999, 1.194;stroke-dashoffset:0.358198;stroke-opacity:1;paint-order:fill markers stroke"
+         d="M 9.2986,74.596992 H 138.90039"
+         id="path6" />
+    </g>
+  </g>
+  <g
+     inkscape:label="图层 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <path
+       id="rect241"
+       style="fill:#28220b;stroke-width:0.779985;stroke-linecap:round;stroke-dasharray:0.779985, 1.55997;stroke-dashoffset:0.701985;paint-order:fill markers stroke"
+       d="m 36.158505,166.77887 v 2.99982 h 0.88625 v -2.11357 l 2.113567,-5.1e-4 v -0.88574 z m 39.158333,0 v 0.88574 l 2.113566,5.1e-4 v 2.11357 h 0.886251 v -2.99982 z m -39.158333,19.497 v 2.99982 h 2.999817 v -0.88625 h -2.113567 l -5.16e-4,-2.11357 z m 41.272416,0 -5.17e-4,2.11357 h -2.113566 v 0.88625 h 2.999817 l -5.17e-4,-2.99982 z"
+       sodipodi:insensitive="true" />
+    <text
+       xml:space="preserve"
+       transform="matrix(0.62308374,0,0,0.62308374,-20.812822,44.220664)"
+       id="text244"
+       style="font-weight:600;font-size:29.3333px;line-height:1.6;font-family:'思源黑体 CN';-inkscape-font-specification:'思源黑体 CN Semi-Bold';text-align:start;letter-spacing:0px;word-spacing:5.27px;writing-mode:lr-tb;direction:ltr;white-space:pre;shape-inside:url(#rect244);display:inline;fill:#28220b;stroke-width:2.26772;stroke-linecap:round;stroke-dasharray:2.26772, 4.53543;stroke-dashoffset:2.04094;paint-order:fill markers stroke"
+       x="13.713338"
+       y="0"
+       sodipodi:insensitive="true"><tspan
+         x="110.55405"
+         y="225.76368"
+         id="tspan4"><tspan
+           style="font-weight:normal;font-family:'思源宋体 CN VF';-inkscape-font-specification:'思源宋体 CN VF';text-align:center;text-anchor:middle"
+           id="tspan3">★</tspan></tspan></text>
+    <path
+       style="opacity:1;fill:#999999;stroke:#cccccc;stroke-width:0.397999;stroke-linecap:round;stroke-dasharray:0.397999, 1.194;stroke-dashoffset:0.358198;paint-order:fill markers stroke"
+       d="M 23.768838,-31.595198 H 153.37063"
+       id="path4" />
+  </g>
+</svg>
