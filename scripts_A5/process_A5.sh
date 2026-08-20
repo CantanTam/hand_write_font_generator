@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-INPUT_SVG="input.svg"
+INPUT_SVG="input_A5.svg"
 FONT_FILE="font.txt"
 QR_SIZE=120
 
