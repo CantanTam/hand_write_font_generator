@@ -15,7 +15,7 @@ A6_H_PX=$(awk "BEGIN {printf \"%d\", $A6_H_MM / 25.4 * $TARGET_DPI}")
 REF_COLOR="#cccccc"      # ← 最终 path 的 fill 颜色
 REF_OPACITY="1"        # ← 最终 path 的 opacity 透明度
 
-FONT_COLOR="#ffff00"     # ← 微调模式上层 font 的 fill 颜色
+FONT_COLOR="#ff0000"     # ← 微调模式上层 font 的 fill 颜色
 FONT_OPACITY="0.5"       # ← 微调模式上层 font 的 opacity 透明度
 
 STROKE_WIDTH=1           # ← 描边宽度，单位 pt
@@ -126,8 +126,8 @@ config_dialog() {
         opts=$(dialog --clear --stdout \
             --title " 高级选项 " \
             --checklist "" 10 40 2 \
-            "微调模式"    "开启后可在 Inkscape 中微调"  off \
-            "启用描边"    "为上层添加描边效果"  off) || {
+            "微调模式"    ""  off \
+            "启用描边"    ""  off) || {
             clear
             echo "❌ 已取消"
             return 1
