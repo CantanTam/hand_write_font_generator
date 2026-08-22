@@ -19,11 +19,11 @@ TEMP_BOT="temp_bot.png"
 # ============================================================================
 # 依赖检查
 # ============================================================================
-for cmd in magick zbarimg potrace awk dialog; do
+for cmd in magick zbarimg potrace awk dialog inkscape; do
     if ! command -v "$cmd" &>/dev/null; then
         clear
         echo "❌ 缺少依赖: $cmd"
-        echo "   安装: sudo pacman -S imagemagick zbar potrace awk dialog"
+        echo "   安装: sudo pacman -S imagemagick zbar potrace awk dialog inkscape"
         exit 1
     fi
 done
@@ -40,11 +40,11 @@ config_dialog() {
 
     while true; do
         vals=$(dialog --clear --stdout \
-            --title " 参数设置 " \
+            --title " 处理参数 " \
             --form "" 12 40 4 \
             "裁切偏移" 1 1 "$cut_off" 1 12 8 0 \
             "灰度阈值" 2 1 "$thresh" 2 12 8 0 \
-            "平滑程度"   3 1 "$smooth" 3 12 8 0 \
+            "平滑度"   3 1 "$smooth" 3 12 8 0 \
             "去噪强度" 4 1 "$despeck" 4 12 8 0) || {
             clear
             echo "❌ 已取消"
@@ -222,6 +222,14 @@ process_all() {
             potrace -k "$THRESHOLD" -a "$SMOOTH" -t "$DESPECKLE" -s \
             -W "${svg_mm}mm" -H "${svg_mm}mm" \
             -o "${qr_value}.svg" 2>/dev/null
+
+        # --- inkscape CLI：解组 + 并集（合并所有路径）---
+        if [ -f "${qr_value}.svg" ]; then
+            inkscape "${qr_value}.svg" \
+                --batch-process \
+                --actions="select-all;selection-ungroup;select-all;path-union" \
+                --export-filename="${qr_value}.svg" 2>/dev/null || true
+        fi
 
         # 清理、移动
         rm -f "$TEMP_IMG" "$TEMP_TOP" "$TEMP_BOT" \
