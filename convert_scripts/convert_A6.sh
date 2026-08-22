@@ -12,11 +12,17 @@ TARGET_DPI=300
 A6_W_PX=$(awk "BEGIN {printf \"%d\", $A6_W_MM / 25.4 * $TARGET_DPI}")
 A6_H_PX=$(awk "BEGIN {printf \"%d\", $A6_H_MM / 25.4 * $TARGET_DPI}")
 
-REF_COLOR="#ff0000"      # ← 最终 path 的 fill 颜色
-REF_OPACITY="0.5"        # ← 最终 path 的 opacity 透明度
+REF_COLOR="#cccccc"      # ← 最终 path 的 fill 颜色
+REF_OPACITY="1"        # ← 最终 path 的 opacity 透明度
 
 FONT_COLOR="#ffff00"     # ← 微调模式上层 font 的 fill 颜色
 FONT_OPACITY="0.5"       # ← 微调模式上层 font 的 opacity 透明度
+
+STROKE_WIDTH=1           # ← 描边宽度，单位 pt
+STROKE_COLOR="#000000"   # ← 描边颜色
+
+# 1pt 在 potrace 输出的 SVG 用户单位中约等于 41.66145888
+STROKE_WIDTH_SVG=$(awk "BEGIN {printf \"%.8f\", $STROKE_WIDTH * 41.66145888}")
 
 # 高级选项默认值
 FINE_TUNE=false
@@ -120,8 +126,8 @@ config_dialog() {
         opts=$(dialog --clear --stdout \
             --title " 高级选项 " \
             --checklist "" 10 40 2 \
-            "fine_tune"    "微调模式"  off \
-            "enable_stroke" "启用描边" off) || {
+            "微调模式"    "开启后可在 Inkscape 中微调"  off \
+            "启用描边"    "为上层添加描边效果"  off) || {
             clear
             echo "❌ 已取消"
             return 1
@@ -132,8 +138,8 @@ config_dialog() {
         # 解析 checklist（返回空格分隔的选中项）
         FINE_TUNE=false
         ENABLE_STROKE=false
-        [[ "$opts" == *"fine_tune"* ]] && FINE_TUNE=true
-        [[ "$opts" == *"enable_stroke"* ]] && ENABLE_STROKE=true
+        [[ "$opts" == *"微调模式"* ]] && FINE_TUNE=true
+        [[ "$opts" == *"启用描边"* ]] && ENABLE_STROKE=true
 
         # 导出数值参数
         CUT_OFFSET=$cut_off
@@ -185,6 +191,7 @@ echo "  裁切边长: $((A6_W_PX - CUT_OFFSET * 2)) px"
 echo "  灰度阈值: ${THRESHOLD} | 平滑度: ${SMOOTH} | 去噪: ${DESPECKLE}"
 echo "  颜色: ${REF_COLOR} | 透明度: ${REF_OPACITY}"
 echo "  字体颜色: ${FONT_COLOR} | 字体透明度: ${FONT_OPACITY}"
+echo "  描边颜色: ${STROKE_COLOR} | 描边宽度: ${STROKE_WIDTH} pt (${STROKE_WIDTH_SVG})"
 echo "  微调模式: ${FINE_TUNE} | 启用描边: ${ENABLE_STROKE}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
@@ -259,11 +266,11 @@ process_all() {
                 --actions="select-all;selection-ungroup;select-all;path-union" \
                 --export-filename="${qr_value}.svg" 2>/dev/null || true
 
-            # 展平 <g>，处理微调模式逻辑
-            python3 - "$REF_COLOR" "$REF_OPACITY" "$FONT_COLOR" "$FONT_OPACITY" "$FINE_TUNE" "${qr_value}.svg" << 'PYEOF'
+            # 展平 <g>，处理微调模式与描边逻辑
+            python3 - "$REF_COLOR" "$REF_OPACITY" "$FONT_COLOR" "$FONT_OPACITY" "$FINE_TUNE" "$ENABLE_STROKE" "$STROKE_COLOR" "$STROKE_WIDTH_SVG" "${qr_value}.svg" << 'PYEOF'
 import sys, copy, xml.etree.ElementTree as ET
 
-ref_color, ref_opacity, font_color, font_opacity, fine_tune, svg_file = sys.argv[1:7]
+ref_color, ref_opacity, font_color, font_opacity, fine_tune, enable_stroke, stroke_color, stroke_width, svg_file = sys.argv[1:10]
 
 svg = ET.parse(svg_file)
 root = svg.getroot()
@@ -308,10 +315,12 @@ if fine_tune == "true":
     path.set('style', f'fill:{ref_color};opacity:{ref_opacity}')
     path.set(f'{{{sodipodi_ns}}}insensitive', 'true')
 
-    # font：使用 FONT_COLOR / FONT_OPACITY
-    font_path.attrib.pop('fill', None)
-    font_path.attrib.pop('fill-opacity', None)
-    font_path.set('style', f'fill:{font_color};opacity:{font_opacity}')
+    if enable_stroke == "true":
+        font_path.set('style', f'display:inline;opacity:0.5;fill:none;stroke:{stroke_color};stroke-width:{stroke_width};stroke-dasharray:none')
+    else:
+        font_path.attrib.pop('fill', None)
+        font_path.attrib.pop('fill-opacity', None)
+        font_path.set('style', f'fill:{font_color};opacity:{font_opacity}')
 
     idx = list(root).index(path)
     root.insert(idx + 1, font_path)
