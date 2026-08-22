@@ -210,12 +210,6 @@ process_all() {
             "${TEMP_IMG%.png}_square.png" 2>/dev/null
 
         # --- potrace 矢量化（-k 处理灰度阈值）---
-        # -k : 灰度阈值（用户可调，0~1，越小越少的深色被保留）
-        # -a : 角点阈值（用户可调）
-        #      越小 → 越锐利，节点越多
-        #      越大 → 越平滑，节点越少
-        # -t : 去噪阈值（用户可调）
-        #      面积小于此像素数的闭合形状会被抹掉
         svg_mm=$(awk "BEGIN {printf \"%.2f\", $side_len / $A6_W_PX * $A6_W_MM}")
 
         magick "${TEMP_IMG%.png}_square.png" pgm:- 2>/dev/null | \
@@ -229,6 +223,12 @@ process_all() {
                 --batch-process \
                 --actions="select-all;selection-ungroup;select-all;path-union" \
                 --export-filename="${qr_value}.svg" 2>/dev/null || true
+
+            # 重命名图层 ID 为 font，路径 ID 为 reference
+            sed -i \
+                -e 's/ id="g[0-9]*"/ id="font"/g' \
+                -e 's/ id="path[0-9]*"/ id="reference"/g' \
+                "${qr_value}.svg"
         fi
 
         # 清理、移动
