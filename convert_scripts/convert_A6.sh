@@ -3,7 +3,7 @@
 set -euo pipefail
 
 # ============================================================================
-# 常量
+# 常量 —— 修改这里即可改变最终 SVG 的颜色和透明度
 # ============================================================================
 A6_W_MM=105
 A6_H_MM=148
@@ -11,6 +11,9 @@ TARGET_DPI=300
 
 A6_W_PX=$(awk "BEGIN {printf \"%d\", $A6_W_MM / 25.4 * $TARGET_DPI}")
 A6_H_PX=$(awk "BEGIN {printf \"%d\", $A6_H_MM / 25.4 * $TARGET_DPI}")
+
+REF_COLOR="#cccccc"      # ← 最终 path 的 fill 颜色
+REF_OPACITY="1"        # ← 最终 path 的 opacity 透明度
 
 TEMP_IMG="temp.png"
 TEMP_TOP="temp_top.png"
@@ -53,14 +56,12 @@ config_dialog() {
 
         clear
 
-        # 解析（form 输出每行一个值）
         mapfile -t v <<< "$vals"
         cut_off="${v[0]}"
         thresh="${v[1]}"
         smooth="${v[2]}"
         despeck="${v[3]}"
 
-        # 验证裁切偏移
         if ! [[ "$cut_off" =~ ^[0-9]+$ ]]; then
             dialog --title " 错误 " --msgbox "裁切偏移必须是非负整数" 7 30
             continue
@@ -71,7 +72,6 @@ config_dialog() {
             continue
         fi
 
-        # 验证灰度阈值 (0-100 整数)
         if ! [[ "$thresh" =~ ^-?[0-9]+$ ]]; then
             dialog --title " 错误 " --msgbox "灰度阈值必须是整数" 7 30
             continue
@@ -82,7 +82,6 @@ config_dialog() {
             thresh=100
         fi
 
-        # 验证平滑度 (0-150 整数)
         if ! [[ "$smooth" =~ ^-?[0-9]+$ ]]; then
             dialog --title " 错误 " --msgbox "平滑度必须是整数" 7 30
             continue
@@ -93,7 +92,6 @@ config_dialog() {
             smooth=150
         fi
 
-        # 验证去噪强度 (0-20 整数)
         if ! [[ "$despeck" =~ ^-?[0-9]+$ ]]; then
             dialog --title " 错误 " --msgbox "去噪强度必须是整数" 7 30
             continue
@@ -104,7 +102,6 @@ config_dialog() {
             despeck=20
         fi
 
-        # 导出
         CUT_OFFSET=$cut_off
         THRESHOLD=$(awk "BEGIN {printf \"%.2f\", $thresh / 100}")
         SMOOTH=$(awk "BEGIN {printf \"%.2f\", $smooth / 100}")
@@ -115,19 +112,13 @@ config_dialog() {
 }
 
 # ============================================================================
-# 每次执行前：输入参数
-# ============================================================================
 if ! config_dialog; then
     exit 1
 fi
 
 # ============================================================================
-# 创建文件夹
-# ============================================================================
 mkdir -p source output
 
-# ============================================================================
-# 收集图片
 # ============================================================================
 shopt -s nullglob
 images=()
@@ -151,11 +142,10 @@ echo "  A6: ${A6_W_PX}x${A6_H_PX} px @ ${TARGET_DPI} DPI"
 echo "  裁切偏移: ${CUT_OFFSET} px"
 echo "  裁切边长: $((A6_W_PX - CUT_OFFSET * 2)) px"
 echo "  灰度阈值: ${THRESHOLD} | 平滑度: ${SMOOTH} | 去噪: ${DESPECKLE}"
+echo "  颜色: ${REF_COLOR} | 透明度: ${REF_OPACITY}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-# ============================================================================
-# 主处理
 # ============================================================================
 process_all() {
     local img h half qr_value bot_qr side_len svg_mm
@@ -163,7 +153,6 @@ process_all() {
     for img in "${images[@]}"; do
         printf "处理: %-30s  " "$img"
 
-        # 检测二维码
         qr_value=$(zbarimg -q --raw "$img" 2>/dev/null | head -1 || true)
 
         if [ -z "$qr_value" ]; then
@@ -172,11 +161,9 @@ process_all() {
             continue
         fi
 
-        # 复制、移原图
         cp "$img" "$TEMP_IMG"
         mv "$img" "source/$img"
 
-        # 切半检测方向
         h=$(identify -format "%h" "$TEMP_IMG")
         half=$((h / 2))
 
@@ -192,7 +179,6 @@ process_all() {
             echo -n "正向 "
         fi
 
-        # 标准化到 A6 @ 300 DPI
         magick "$TEMP_IMG" \
             -resize "${A6_W_PX}x${A6_H_PX}" \
             -extent "${A6_W_PX}x${A6_H_PX}" \
@@ -201,7 +187,6 @@ process_all() {
             -density "$TARGET_DPI" \
             "$TEMP_IMG" 2>/dev/null
 
-        # 带偏移的正方形裁切
         side_len=$((A6_W_PX - CUT_OFFSET * 2))
 
         magick "$TEMP_IMG" \
@@ -209,7 +194,6 @@ process_all() {
             +repage \
             "${TEMP_IMG%.png}_square.png" 2>/dev/null
 
-        # --- potrace 矢量化（-k 处理灰度阈值）---
         svg_mm=$(awk "BEGIN {printf \"%.2f\", $side_len / $A6_W_PX * $A6_W_MM}")
 
         magick "${TEMP_IMG%.png}_square.png" pgm:- 2>/dev/null | \
@@ -217,23 +201,24 @@ process_all() {
             -W "${svg_mm}mm" -H "${svg_mm}mm" \
             -o "${qr_value}.svg" 2>/dev/null
 
-        # --- inkscape CLI：解组 + 并集（合并所有路径）---
         if [ -f "${qr_value}.svg" ]; then
             inkscape "${qr_value}.svg" \
                 --batch-process \
                 --actions="select-all;selection-ungroup;select-all;path-union" \
                 --export-filename="${qr_value}.svg" 2>/dev/null || true
 
-            # 将并集结果中的 path 移出 g 元素，删除空 g，并重命名 ID
-            python3 - "${qr_value}.svg" << 'PYEOF'
+            # 展平 <g>，删除旧 fill/fill-opacity，统一改用 style
+            python3 - "$REF_COLOR" "$REF_OPACITY" "${qr_value}.svg" << 'PYEOF'
 import sys, xml.etree.ElementTree as ET
-svg = ET.parse(sys.argv[1])
+color, opacity, svg_file = sys.argv[1], sys.argv[2], sys.argv[3]
+svg = ET.parse(svg_file)
 root = svg.getroot()
 ns = 'http://www.w3.org/2000/svg'
 ET.register_namespace('', ns)
 ET.register_namespace('inkscape', 'http://www.inkscape.org/namespaces/inkscape')
 ET.register_namespace('sodipodi', 'http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd')
 
+# 1) 若 path 被 <g> 包裹，展平并保留 transform
 for g in list(root):
     if g.tag != f'{{{ns}}}g':
         continue
@@ -245,14 +230,19 @@ for g in list(root):
     g.remove(path)
     idx = list(root).index(g)
     root.insert(idx + 1, path)
-    path.set('id', 'reference')
     root.remove(g)
 
-svg.write(sys.argv[1], encoding='UTF-8', xml_declaration=True)
+# 2) 对所有 <path>：删除旧的 fill / fill-opacity，改用 style
+for path in root.iter(f'{{{ns}}}path'):
+    path.set('id', 'reference')
+    path.attrib.pop('fill', None)
+    path.attrib.pop('fill-opacity', None)
+    path.set('style', f'fill:{color};opacity:{opacity}')
+
+svg.write(svg_file, encoding='UTF-8', xml_declaration=True)
 PYEOF
         fi
 
-        # 清理、移动
         rm -f "$TEMP_IMG" "$TEMP_TOP" "$TEMP_BOT" \
             "${TEMP_IMG%.png}_square.png"
 
