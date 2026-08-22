@@ -62,7 +62,7 @@ config_dialog() {
             --form "" 12 40 4 \
             "裁切偏移" 1 1 "$cut_off" 1 12 8 0 \
             "灰度阈值" 2 1 "$thresh" 2 12 8 0 \
-            "平滑度"   3 1 "$smooth" 3 12 8 0 \
+            "平滑程度"   3 1 "$smooth" 3 12 8 0 \
             "去噪强度" 4 1 "$despeck" 4 12 8 0) || {
             clear
             echo "❌ 已取消"
