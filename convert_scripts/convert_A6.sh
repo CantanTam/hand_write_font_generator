@@ -224,47 +224,31 @@ process_all() {
                 --actions="select-all;selection-ungroup;select-all;path-union" \
                 --export-filename="${qr_value}.svg" 2>/dev/null || true
 
-            # 将并集结果中的 path 移出 g 元素，与 g 同级，重命名 ID，并删除空的 g
+            # 将并集结果中的 path 移出 g 元素，删除空 g，并重命名 ID
             python3 - "${qr_value}.svg" << 'PYEOF'
-import sys
-import xml.etree.ElementTree as ET
-
-svg_file = sys.argv[1]
-tree = ET.parse(svg_file)
-root = tree.getroot()
-
+import sys, xml.etree.ElementTree as ET
+svg = ET.parse(sys.argv[1])
+root = svg.getroot()
 ns = 'http://www.w3.org/2000/svg'
 ET.register_namespace('', ns)
 ET.register_namespace('inkscape', 'http://www.inkscape.org/namespaces/inkscape')
 ET.register_namespace('sodipodi', 'http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd')
 
-def find_parent(root, child):
-    for parent in root.iter():
-        for c in list(parent):
-            if c is child:
-                return parent
-    return None
-
-# 处理并集后生成的 g 元素（通常位于 svg 根下，内部包含一个 path）
-for g in root.iter(f'{{{ns}}}g'):
-    # 只处理直接包含 path 子元素的 g
+for g in list(root):
+    if g.tag != f'{{{ns}}}g':
+        continue
     path = g.find(f'{{{ns}}}path')
-    if path is not None:
-        # 若 path 自身没有 transform，则继承 g 的 transform，保证显示位置不变
-        if 'transform' not in path.attrib and 'transform' in g.attrib:
-            path.set('transform', g.attrib['transform'])
+    if path is None:
+        continue
+    if 'transform' in g.attrib and 'transform' not in path.attrib:
+        path.set('transform', g.attrib['transform'])
+    g.remove(path)
+    idx = list(root).index(g)
+    root.insert(idx + 1, path)
+    path.set('id', 'reference')
+    root.remove(g)
 
-        parent = find_parent(root, g)
-        if parent is not None:
-            # 关键：必须先从 g 中移除 path，再插入到父级，否则会产生重复元素
-            g.remove(path)
-            idx = list(parent).index(g)
-            parent.insert(idx + 1, path)
-            path.set('id', 'reference')
-            # 删除空的 font 集合
-            parent.remove(g)
-
-tree.write(svg_file, encoding='UTF-8', xml_declaration=True)
+svg.write(sys.argv[1], encoding='UTF-8', xml_declaration=True)
 PYEOF
         fi
 
