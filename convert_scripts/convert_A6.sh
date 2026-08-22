@@ -15,6 +15,9 @@ A6_H_PX=$(awk "BEGIN {printf \"%d\", $A6_H_MM / 25.4 * $TARGET_DPI}")
 REF_COLOR="#ff0000"      # ← 最终 path 的 fill 颜色
 REF_OPACITY="0.5"        # ← 最终 path 的 opacity 透明度
 
+FONT_COLOR="#ffff00"     # ← 微调模式上层 font 的 fill 颜色
+FONT_OPACITY="0.5"       # ← 微调模式上层 font 的 opacity 透明度
+
 # 高级选项默认值
 FINE_TUNE=false
 ENABLE_STROKE=false
@@ -181,6 +184,7 @@ echo "  裁切偏移: ${CUT_OFFSET} px"
 echo "  裁切边长: $((A6_W_PX - CUT_OFFSET * 2)) px"
 echo "  灰度阈值: ${THRESHOLD} | 平滑度: ${SMOOTH} | 去噪: ${DESPECKLE}"
 echo "  颜色: ${REF_COLOR} | 透明度: ${REF_OPACITY}"
+echo "  字体颜色: ${FONT_COLOR} | 字体透明度: ${FONT_OPACITY}"
 echo "  微调模式: ${FINE_TUNE} | 启用描边: ${ENABLE_STROKE}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
@@ -255,16 +259,20 @@ process_all() {
                 --actions="select-all;selection-ungroup;select-all;path-union" \
                 --export-filename="${qr_value}.svg" 2>/dev/null || true
 
-            # 展平 <g>，删除旧 fill/fill-opacity，统一改用 style
-            python3 - "$REF_COLOR" "$REF_OPACITY" "${qr_value}.svg" << 'PYEOF'
-import sys, xml.etree.ElementTree as ET
-color, opacity, svg_file = sys.argv[1], sys.argv[2], sys.argv[3]
+            # 展平 <g>，处理微调模式逻辑
+            python3 - "$REF_COLOR" "$REF_OPACITY" "$FONT_COLOR" "$FONT_OPACITY" "$FINE_TUNE" "${qr_value}.svg" << 'PYEOF'
+import sys, copy, xml.etree.ElementTree as ET
+
+ref_color, ref_opacity, font_color, font_opacity, fine_tune, svg_file = sys.argv[1:7]
+
 svg = ET.parse(svg_file)
 root = svg.getroot()
 ns = 'http://www.w3.org/2000/svg'
+sodipodi_ns = 'http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd'
+
 ET.register_namespace('', ns)
 ET.register_namespace('inkscape', 'http://www.inkscape.org/namespaces/inkscape')
-ET.register_namespace('sodipodi', 'http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd')
+ET.register_namespace('sodipodi', sodipodi_ns)
 
 # 1) 若 path 被 <g> 包裹，展平并保留 transform
 for g in list(root):
@@ -280,12 +288,36 @@ for g in list(root):
     root.insert(idx + 1, path)
     root.remove(g)
 
-# 2) 对所有 <path>：删除旧的 fill / fill-opacity，改用 style
-for path in root.iter(f'{{{ns}}}path'):
-    path.set('id', 'reference')
-    path.attrib.pop('fill', None)
-    path.attrib.pop('fill-opacity', None)
-    path.set('style', f'fill:{color};opacity:{opacity}')
+# 2) 处理 path
+paths = list(root.iter(f'{{{ns}}}path'))
+if not paths:
+    svg.write(svg_file, encoding='UTF-8', xml_declaration=True)
+    sys.exit(0)
+
+path = paths[0]
+path.set('id', 'reference')
+path.attrib.pop('fill', None)
+path.attrib.pop('fill-opacity', None)
+
+if fine_tune == "true":
+    # 等效于 inkscape Ctrl+D：原地复制一份并重命名为 font
+    font_path = copy.deepcopy(path)
+    font_path.set('id', 'font')
+
+    # reference：使用 REF_COLOR / REF_OPACITY，并锁定
+    path.set('style', f'fill:{ref_color};opacity:{ref_opacity}')
+    path.set(f'{{{sodipodi_ns}}}insensitive', 'true')
+
+    # font：使用 FONT_COLOR / FONT_OPACITY
+    font_path.attrib.pop('fill', None)
+    font_path.attrib.pop('fill-opacity', None)
+    font_path.set('style', f'fill:{font_color};opacity:{font_opacity}')
+
+    idx = list(root).index(path)
+    root.insert(idx + 1, font_path)
+else:
+    # 非微调模式：直接设为黑色不透明
+    path.set('style', 'fill:#000000;opacity:1')
 
 svg.write(svg_file, encoding='UTF-8', xml_declaration=True)
 PYEOF
