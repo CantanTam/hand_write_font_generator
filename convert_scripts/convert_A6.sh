@@ -19,7 +19,7 @@ TEMP_BOT="temp_bot.png"
 # ============================================================================
 # 依赖检查
 # ============================================================================
-for cmd in magick zbarimg potrace awk dialog inkscape; do
+for cmd in magick zbarimg potrace awk dialog inkscape python3; do
     if ! command -v "$cmd" &>/dev/null; then
         clear
         echo "❌ 缺少依赖: $cmd"
@@ -224,11 +224,48 @@ process_all() {
                 --actions="select-all;selection-ungroup;select-all;path-union" \
                 --export-filename="${qr_value}.svg" 2>/dev/null || true
 
-            # 重命名图层 ID 为 font，路径 ID 为 reference
-            sed -i \
-                -e 's/ id="g[0-9]*"/ id="font"/g' \
-                -e 's/ id="path[0-9]*"/ id="reference"/g' \
-                "${qr_value}.svg"
+            # 将并集结果中的 path 移出 g 元素，与 g 同级，重命名 ID，并删除空的 g
+            python3 - "${qr_value}.svg" << 'PYEOF'
+import sys
+import xml.etree.ElementTree as ET
+
+svg_file = sys.argv[1]
+tree = ET.parse(svg_file)
+root = tree.getroot()
+
+ns = 'http://www.w3.org/2000/svg'
+ET.register_namespace('', ns)
+ET.register_namespace('inkscape', 'http://www.inkscape.org/namespaces/inkscape')
+ET.register_namespace('sodipodi', 'http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd')
+
+def find_parent(root, child):
+    for parent in root.iter():
+        for c in list(parent):
+            if c is child:
+                return parent
+    return None
+
+# 处理并集后生成的 g 元素（通常位于 svg 根下，内部包含一个 path）
+for g in root.iter(f'{{{ns}}}g'):
+    # 只处理直接包含 path 子元素的 g
+    path = g.find(f'{{{ns}}}path')
+    if path is not None:
+        # 若 path 自身没有 transform，则继承 g 的 transform，保证显示位置不变
+        if 'transform' not in path.attrib and 'transform' in g.attrib:
+            path.set('transform', g.attrib['transform'])
+
+        parent = find_parent(root, g)
+        if parent is not None:
+            # 关键：必须先从 g 中移除 path，再插入到父级，否则会产生重复元素
+            g.remove(path)
+            idx = list(parent).index(g)
+            parent.insert(idx + 1, path)
+            path.set('id', 'reference')
+            # 删除空的 font 集合
+            parent.remove(g)
+
+tree.write(svg_file, encoding='UTF-8', xml_declaration=True)
+PYEOF
         fi
 
         # 清理、移动
