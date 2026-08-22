@@ -12,8 +12,12 @@ TARGET_DPI=300
 A6_W_PX=$(awk "BEGIN {printf \"%d\", $A6_W_MM / 25.4 * $TARGET_DPI}")
 A6_H_PX=$(awk "BEGIN {printf \"%d\", $A6_H_MM / 25.4 * $TARGET_DPI}")
 
-REF_COLOR="#cccccc"      # ← 最终 path 的 fill 颜色
-REF_OPACITY="1"        # ← 最终 path 的 opacity 透明度
+REF_COLOR="#ff0000"      # ← 最终 path 的 fill 颜色
+REF_OPACITY="0.5"        # ← 最终 path 的 opacity 透明度
+
+# 高级选项默认值
+FINE_TUNE=false
+ENABLE_STROKE=false
 
 TEMP_IMG="temp.png"
 TEMP_TOP="temp_top.png"
@@ -32,18 +36,20 @@ for cmd in magick zbarimg potrace awk dialog inkscape python3; do
 done
 
 # ============================================================================
-# 配置界面：一步输入 4 个参数
+# 配置界面：一步输入 4 个参数 + 高级选项
 # ============================================================================
 config_dialog() {
     local cut_off="0"
     local thresh="50"
     local smooth="100"
     local despeck="2"
-    local vals side_len
+    local vals side_len opts
 
     while true; do
+        # --- 第一个 form：数值参数 ---
         vals=$(dialog --clear --stdout \
             --title " 处理参数 " \
+            --ok-label "继续" \
             --form "" 12 40 4 \
             "裁切偏移" 1 1 "$cut_off" 1 12 8 0 \
             "灰度阈值" 2 1 "$thresh" 2 12 8 0 \
@@ -56,12 +62,14 @@ config_dialog() {
 
         clear
 
+        # 解析（form 输出每行一个值）
         mapfile -t v <<< "$vals"
         cut_off="${v[0]}"
         thresh="${v[1]}"
         smooth="${v[2]}"
         despeck="${v[3]}"
 
+        # 验证裁切偏移
         if ! [[ "$cut_off" =~ ^[0-9]+$ ]]; then
             dialog --title " 错误 " --msgbox "裁切偏移必须是非负整数" 7 30
             continue
@@ -72,6 +80,7 @@ config_dialog() {
             continue
         fi
 
+        # 验证灰度阈值 (0-100 整数)
         if ! [[ "$thresh" =~ ^-?[0-9]+$ ]]; then
             dialog --title " 错误 " --msgbox "灰度阈值必须是整数" 7 30
             continue
@@ -82,6 +91,7 @@ config_dialog() {
             thresh=100
         fi
 
+        # 验证平滑度 (0-150 整数)
         if ! [[ "$smooth" =~ ^-?[0-9]+$ ]]; then
             dialog --title " 错误 " --msgbox "平滑度必须是整数" 7 30
             continue
@@ -92,6 +102,7 @@ config_dialog() {
             smooth=150
         fi
 
+        # 验证去噪强度 (0-20 整数)
         if ! [[ "$despeck" =~ ^-?[0-9]+$ ]]; then
             dialog --title " 错误 " --msgbox "去噪强度必须是整数" 7 30
             continue
@@ -102,23 +113,50 @@ config_dialog() {
             despeck=20
         fi
 
+        # --- 第二个 form：checklist 勾选选项 ---
+        opts=$(dialog --clear --stdout \
+            --title " 高级选项 " \
+            --checklist "" 10 40 2 \
+            "fine_tune"    "微调模式"  off \
+            "enable_stroke" "启用描边" off) || {
+            clear
+            echo "❌ 已取消"
+            return 1
+        }
+
+        clear
+
+        # 解析 checklist（返回空格分隔的选中项）
+        FINE_TUNE=false
+        ENABLE_STROKE=false
+        [[ "$opts" == *"fine_tune"* ]] && FINE_TUNE=true
+        [[ "$opts" == *"enable_stroke"* ]] && ENABLE_STROKE=true
+
+        # 导出数值参数
         CUT_OFFSET=$cut_off
         THRESHOLD=$(awk "BEGIN {printf \"%.2f\", $thresh / 100}")
         SMOOTH=$(awk "BEGIN {printf \"%.2f\", $smooth / 100}")
         DESPECKLE=$despeck
         echo "✅ 裁切偏移: ${CUT_OFFSET} px | 灰度阈值: ${THRESHOLD} | 平滑度: ${SMOOTH} | 去噪: ${DESPECKLE}"
+        echo "✅ 微调模式: ${FINE_TUNE} | 启用描边: ${ENABLE_STROKE}"
         return 0
     done
 }
 
+# ============================================================================
+# 每次执行前：输入参数
 # ============================================================================
 if ! config_dialog; then
     exit 1
 fi
 
 # ============================================================================
+# 创建文件夹
+# ============================================================================
 mkdir -p source output
 
+# ============================================================================
+# 收集图片
 # ============================================================================
 shopt -s nullglob
 images=()
@@ -143,9 +181,12 @@ echo "  裁切偏移: ${CUT_OFFSET} px"
 echo "  裁切边长: $((A6_W_PX - CUT_OFFSET * 2)) px"
 echo "  灰度阈值: ${THRESHOLD} | 平滑度: ${SMOOTH} | 去噪: ${DESPECKLE}"
 echo "  颜色: ${REF_COLOR} | 透明度: ${REF_OPACITY}"
+echo "  微调模式: ${FINE_TUNE} | 启用描边: ${ENABLE_STROKE}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
+# ============================================================================
+# 主处理
 # ============================================================================
 process_all() {
     local img h half qr_value bot_qr side_len svg_mm
@@ -153,6 +194,7 @@ process_all() {
     for img in "${images[@]}"; do
         printf "处理: %-30s  " "$img"
 
+        # 检测二维码
         qr_value=$(zbarimg -q --raw "$img" 2>/dev/null | head -1 || true)
 
         if [ -z "$qr_value" ]; then
@@ -161,9 +203,11 @@ process_all() {
             continue
         fi
 
+        # 复制、移原图
         cp "$img" "$TEMP_IMG"
         mv "$img" "source/$img"
 
+        # 切半检测方向
         h=$(identify -format "%h" "$TEMP_IMG")
         half=$((h / 2))
 
@@ -179,6 +223,7 @@ process_all() {
             echo -n "正向 "
         fi
 
+        # 标准化到 A6 @ 300 DPI
         magick "$TEMP_IMG" \
             -resize "${A6_W_PX}x${A6_H_PX}" \
             -extent "${A6_W_PX}x${A6_H_PX}" \
@@ -187,6 +232,7 @@ process_all() {
             -density "$TARGET_DPI" \
             "$TEMP_IMG" 2>/dev/null
 
+        # 带偏移的正方形裁切
         side_len=$((A6_W_PX - CUT_OFFSET * 2))
 
         magick "$TEMP_IMG" \
@@ -194,6 +240,7 @@ process_all() {
             +repage \
             "${TEMP_IMG%.png}_square.png" 2>/dev/null
 
+        # --- potrace 矢量化（-k 处理灰度阈值）---
         svg_mm=$(awk "BEGIN {printf \"%.2f\", $side_len / $A6_W_PX * $A6_W_MM}")
 
         magick "${TEMP_IMG%.png}_square.png" pgm:- 2>/dev/null | \
@@ -201,6 +248,7 @@ process_all() {
             -W "${svg_mm}mm" -H "${svg_mm}mm" \
             -o "${qr_value}.svg" 2>/dev/null
 
+        # --- inkscape CLI：解组 + 并集（合并所有路径）---
         if [ -f "${qr_value}.svg" ]; then
             inkscape "${qr_value}.svg" \
                 --batch-process \
@@ -243,6 +291,7 @@ svg.write(svg_file, encoding='UTF-8', xml_declaration=True)
 PYEOF
         fi
 
+        # 清理、移动
         rm -f "$TEMP_IMG" "$TEMP_TOP" "$TEMP_BOT" \
             "${TEMP_IMG%.png}_square.png"
 
